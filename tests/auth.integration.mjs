@@ -77,7 +77,19 @@ try {
   const login = await request('/api/auth/login', { body: credentials(' BUSINESS_A ') });
   status(login, 200, 'normalized login');
   const signedIn = cookie(login);
-  status(await request('/', { cookie: signedIn }), 200, 'authenticated home');
+  const authenticatedHome = await request('/', { cookie: signedIn });
+  status(authenticatedHome, 307, 'authenticated home redirects');
+  assert.equal(authenticatedHome.headers.get('location'), '/catalog');
+  status(await request('/catalog', { cookie: business.cookie }), 200, 'business catalog page');
+  status(await request('/catalog', { cookie: student.cookie }), 200, 'student catalog page');
+  status(await request('/business/dashboard', { cookie: business.cookie }), 200, 'business dashboard page');
+  status(await request('/business/tasks/new', { cookie: business.cookie }), 200, 'business task creation page');
+  status(await request('/business/proposals', { cookie: business.cookie }), 200, 'business proposals page');
+  const blockedStudentTaskPage = await request('/business/tasks/new', { cookie: student.cookie });
+  status(blockedStudentTaskPage, 307, 'student task creation page redirects');
+  assert.equal(blockedStudentTaskPage.headers.get('location'), '/student/dashboard');
+  status(await request('/student/dashboard', { cookie: student.cookie }), 200, 'student dashboard page');
+  status(await request('/student/proposals', { cookie: student.cookie }), 200, 'student proposals page');
   status(await request('/login', { cookie: signedIn }), 307, 'authenticated login redirects');
 
   const task = { title: 'Integration task', industry: 'Education', context: 'Context', need: 'Need', users: '', dataMaterials: '', constraints: '', expectedResult: '', successCriteria: '', contact: '', interactionFormat: '', language: 'ru', ownerId: otherBusiness.user.id };

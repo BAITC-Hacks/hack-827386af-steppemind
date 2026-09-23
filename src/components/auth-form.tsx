@@ -58,7 +58,7 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
       });
       const result = await response.json();
       if (!response.ok) { setError(result.error ?? "unknown"); return; }
-      window.location.replace("/");
+      window.location.replace(result.user.role === "business" ? "/business/dashboard" : "/student/dashboard");
     } catch { setError("unknown"); }
     finally { setBusy(false); }
   }

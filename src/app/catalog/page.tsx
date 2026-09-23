@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
+import Dashboard from "@/components/dashboard";
 import { getSessionUser } from "@/lib/auth";
+
 export const runtime = "nodejs";
 
-export default async function Home() {
+export default async function CatalogPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
-  redirect("/catalog");
+  return <Dashboard user={user} initialView="catalog" />;
 }
