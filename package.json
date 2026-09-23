@@ -7,7 +7,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test:auth": "node tests/auth.integration.mjs"
+    "test:auth": "node tests/auth.integration.mjs",
+    "test:logic": "node tests/task-logic.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

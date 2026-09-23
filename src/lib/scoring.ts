@@ -10,7 +10,12 @@ export type ScorableTask = {
   interactionFormat: string;
 };
 
-const complete = (value: string, minimum = 12) => value.trim().length >= minimum;
+// A confirmed, non-empty value counts. Short valid answers (e.g. "HR") are not penalized.
+const complete = (value: string) => value.trim().length > 0;
+
+export function readinessLevel(score: number): "draft" | "workable" | "ready" | "priority" {
+  return score >= 90 ? "priority" : score >= 70 ? "ready" : score >= 40 ? "workable" : "draft";
+}
 
 export function calculateScore(task: ScorableTask) {
   const breakdown = [
@@ -20,9 +25,9 @@ export function calculateScore(task: ScorableTask) {
     { key: "criteria", weight: 15, earned: complete(task.successCriteria) },
     { key: "constraints", weight: 10, earned: complete(task.constraints) },
     { key: "users", weight: 10, earned: complete(task.users) },
-    { key: "communication", weight: 10, earned: complete(task.contact, 5) && complete(task.interactionFormat, 5) },
-  ];
+    { key: "communication", weight: 10, earned: complete(task.contact) && complete(task.interactionFormat) },
+  ] as const;
   const score = breakdown.reduce((sum, item) => sum + (item.earned ? item.weight : 0), 0);
-  const level = score >= 90 ? "priority" : score >= 70 ? "ready" : score >= 40 ? "workable" : "draft";
+  const level = readinessLevel(score);
   return { score, level, breakdown };
 }

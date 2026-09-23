@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db, getState, setProposalStatus } from "@/lib/db";
-import { calculateScore } from "@/lib/scoring";
+import { taskCardSchema } from "@/lib/task-card";
+import { saveDraft } from "@/lib/task-workflow";
 import { proposals, tasks } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { checkMutation, getSessionUser } from "@/lib/auth";
@@ -11,12 +12,7 @@ export const dynamic = "force-dynamic";
 
 const taskSchema = z.object({
   action: z.literal("createTask"),
-  task: z.object({
-    title: z.string().min(3), industry: z.string().min(2), context: z.string(), need: z.string(),
-    users: z.string(), dataMaterials: z.string(), constraints: z.string(), expectedResult: z.string(),
-    successCriteria: z.string(), contact: z.string(), interactionFormat: z.string(),
-    language: z.enum(["kk", "ru"]),
-  }),
+  task: taskCardSchema.extend({ language: z.enum(["kk", "ru"]) }),
 });
 
 const proposalSchema = z.object({
@@ -47,8 +43,9 @@ export async function POST(request: Request) {
 
   if (parsed.data.action === "createTask") {
     if (user.role !== "business") return NextResponse.json({ error: "forbidden" }, { status: 403 });
-    const result = calculateScore(parsed.data.task);
-    db.insert(tasks).values({ ...parsed.data.task, ownerId: user.id, score: result.score, status: "published", createdAt: new Date().toISOString() }).run();
+    // Legacy callers may create a draft, but cannot bypass confirmation and publication.
+    const draft = saveDraft(user.id, { card: parsed.data.task, language: parsed.data.task.language, description: parsed.data.task.context });
+    return NextResponse.json({ ...getState(user), draft }, { headers: { "Cache-Control": "no-store" } });
   } else if (parsed.data.action === "createProposal") {
     if (user.role !== "student") return NextResponse.json({ error: "forbidden" }, { status: 403 });
     const task = db.select().from(tasks).where(eq(tasks.id, parsed.data.taskId)).get();

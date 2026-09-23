@@ -3,6 +3,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { proposals, tasks, type NewTask } from "./schema";
 import type { SessionUser } from "./auth-types";
+import { calculateScore, readinessLevel } from "./scoring";
 
 export const sqlite = new Database(process.env.DATABASE_PATH ?? "steppemind.db");
 sqlite.pragma("journal_mode = WAL");
@@ -25,6 +26,14 @@ sqlite.exec(`
 sqlite.transaction(() => {
   const taskColumns = sqlite.prepare("PRAGMA table_info(tasks)").all() as { name: string }[];
   if (!taskColumns.some(column => column.name === "owner_id")) sqlite.exec("ALTER TABLE tasks ADD COLUMN owner_id INTEGER");
+  const columns: Record<string, string> = {
+    draft_card: "TEXT", description: "TEXT NOT NULL DEFAULT ''", version: "INTEGER NOT NULL DEFAULT 1",
+    confirmed_version: "INTEGER", published_version: "INTEGER", confirmed_score: "INTEGER NOT NULL DEFAULT 0",
+    previous_score: "INTEGER NOT NULL DEFAULT 0",
+  };
+  for (const [column, definition] of Object.entries(columns)) {
+    if (!taskColumns.some(existing => existing.name === column)) sqlite.exec(`ALTER TABLE tasks ADD COLUMN ${column} ${definition}`);
+  }
   const proposalColumns = sqlite.prepare("PRAGMA table_info(proposals)").all() as { name: string }[];
   if (!proposalColumns.some(column => column.name === "student_id")) sqlite.exec("ALTER TABLE proposals ADD COLUMN student_id INTEGER");
   sqlite.exec(`
@@ -120,6 +129,17 @@ if ((sqlite.prepare("SELECT COUNT(*) AS count FROM tasks").get() as { count: num
   }).run();
 }
 
+// Existing published cards stay published. Initialize version metadata once; never adopt a new owner.
+sqlite.transaction(() => {
+  for (const task of db.select().from(tasks).where(eq(tasks.status, "published")).all()) {
+    if (task.publishedVersion === null) {
+      const score = calculateScore(task).score;
+      db.update(tasks).set({ confirmedVersion: task.version, publishedVersion: task.version, score, confirmedScore: score })
+        .where(eq(tasks.id, task.id)).run();
+    }
+  }
+})();
+
 export function getState(user: SessionUser) {
   const visibleProposals = user.role === "business"
     ? db.select({ proposal: proposals }).from(proposals).innerJoin(tasks, eq(proposals.taskId, tasks.id))
@@ -127,7 +147,12 @@ export function getState(user: SessionUser) {
     : db.select().from(proposals).where(eq(proposals.studentId, user.id)).orderBy(desc(proposals.id)).all();
   const counts = sqlite.prepare("SELECT task_id, COUNT(*) AS count FROM proposals GROUP BY task_id").all() as { task_id: number; count: number }[];
   return {
-    tasks: db.select().from(tasks).where(eq(tasks.status, "published")).orderBy(desc(tasks.score)).all(),
+    tasks: db.select().from(tasks).where(eq(tasks.status, "published")).orderBy(desc(tasks.score)).all().map(task => {
+      // Only the published snapshot is public. Working copy and confirmation metadata stay private.
+      const { draftCard, description, version, confirmedVersion, publishedVersion, confirmedScore, previousScore, ...published } = task;
+      void draftCard; void description; void version; void confirmedVersion; void publishedVersion; void confirmedScore; void previousScore;
+      return { ...published, readinessLevel: readinessLevel(task.score) };
+    }),
     proposals: visibleProposals,
     proposalCounts: Object.fromEntries(counts.map(row => [row.task_id, row.count])),
   };

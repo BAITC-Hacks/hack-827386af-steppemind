@@ -95,10 +95,70 @@ try {
   const task = { title: 'Integration task', industry: 'Education', context: 'Context', need: 'Need', users: '', dataMaterials: '', constraints: '', expectedResult: '', successCriteria: '', contact: '', interactionFormat: '', language: 'ru', ownerId: otherBusiness.user.id };
   const create = { action: 'createTask', task };
   status(await request('/api/state', { cookie: student.cookie, body: create }), 403, 'student cannot publish');
-  const published = await request('/api/state', { cookie: business.cookie, body: create });
-  status(published, 200, 'business publishes');
-  const created = (await published.json()).tasks.find(item => item.title === task.title);
+  const savedResponse = await request('/api/state', { cookie: business.cookie, body: create });
+  status(savedResponse, 200, 'legacy create saves an unconfirmed draft');
+  const savedState = await savedResponse.json();
+  const draft = savedState.draft;
+  assert.equal(draft.status, 'draft'); assert.equal(draft.confirmedScore, 0);
+  assert.ok(!savedState.tasks.some(item => item.id === draft.id));
+  async function workflow(body, expected = 200, auth = business.cookie) {
+    const response = await request('/api/tasks', { cookie: auth, body });
+    status(response, expected, `${body.action} task`);
+    return response.json();
+  }
+  const ref = { id: draft.id, version: draft.version };
+  status(await request('/api/tasks'), 401, 'private drafts');
+  status(await request('/api/tasks', { cookie: student.cookie }), 403, 'student cannot list drafts');
+  await workflow({ action: 'publish', ...ref }, 409);
+  await workflow({ action: 'confirm', ...ref }, 400);
+  await workflow({ action: 'confirm', ...ref, confirmed: true }, 404, otherBusiness.cookie);
+  await workflow({ action: 'confirm', ...ref, confirmed: true }, 403, student.cookie);
+  const confirmed = (await workflow({ action: 'confirm', ...ref, confirmed: true })).task;
+  assert.equal(confirmed.status, 'confirmed'); assert.equal(confirmed.confirmedScore, 20);
+  assert.ok(!(await (await request('/api/state', { cookie: student.cookie })).json()).tasks.some(item => item.id === draft.id));
+  await workflow({ action: 'publish', ...ref });
+  const shared = async () => (await (await request('/api/state', { cookie: student.cookie })).json()).tasks;
+  const created = (await shared()).find(item => item.id === draft.id);
   assert.equal(created.ownerId, business.user.id, 'ownership cannot be forged');
+  assert.equal(created.readinessLevel, 'draft'); assert.equal(created.score, 20);
+  for (const key of ['draftCard', 'description', 'version', 'confirmedVersion', 'confirmedScore', 'previousScore']) assert.equal(created[key], undefined);
+
+  // A new 45-point card progresses to 80, then changes again without leaking a working copy.
+  const card45 = { title: 'Turnover demo', industry: 'HR', context: 'Employee turnover', need: 'Identify risk', users: 'HR', dataMaterials: '', constraints: '', expectedResult: 'Risk report', successCriteria: '', contact: '', interactionFormat: '' };
+  const saveBody = { action: 'save', card: card45, description: 'Employee turnover', language: 'ru' };
+  let edited = (await workflow(saveBody)).task;
+  const demoId = edited.id;
+  const current = () => ({ id: demoId, version: edited.version });
+  edited = (await workflow({ action: 'confirm', ...current(), confirmed: true })).task;
+  assert.equal(edited.confirmedScore, 45);
+  edited = (await workflow({ ...saveBody, ...current(), card: { ...card45, dataMaterials: 'CSV', successCriteria: 'Recall >= 80%' } })).task;
+  assert.equal(edited.confirmedVersion, null); assert.equal(edited.status, 'draft');
+  await workflow({ action: 'publish', ...current() }, 409);
+  await workflow({ ...saveBody, id: demoId, version: 1 }, 409);
+  edited = (await workflow({ action: 'confirm', ...current(), confirmed: true })).task;
+  assert.equal(edited.previousScore, 45); assert.equal(edited.confirmedScore, 80);
+  edited = (await workflow({ action: 'publish', ...current() })).task;
+  let publicDemo = (await shared()).find(item => item.id === demoId);
+  assert.equal(publicDemo.score, 80); assert.equal(publicDemo.readinessLevel, 'ready');
+  edited = (await workflow({ ...saveBody, ...current(), card: { ...edited.card, title: 'Private revised title', successCriteria: '' } })).task;
+  publicDemo = (await shared()).find(item => item.id === demoId);
+  assert.equal(publicDemo.title, 'Turnover demo'); assert.equal(publicDemo.score, 80);
+  edited = (await workflow({ action: 'confirm', ...current(), confirmed: true })).task;
+  assert.equal(edited.confirmedScore, 65); assert.equal(edited.previousScore, 80);
+  assert.equal((await shared()).find(item => item.id === demoId).score, 80, 'confirmation does not publish');
+  await workflow({ action: 'publish', ...current() });
+  await workflow({ action: 'publish', ...current() });
+  assert.equal((await shared()).filter(item => item.id === demoId).length, 1, 'same ID, no duplicate publishing');
+  assert.equal((await shared()).find(item => item.id === demoId).score, 65);
+  const zeroCard = Object.fromEntries(Object.keys(card45).map(key => [key, key === 'title' ? 'Only a title' : '']));
+  const zero = (await workflow({ ...saveBody, card: zeroCard })).task;
+  await workflow({ action: 'confirm', id: zero.id, version: zero.version, confirmed: true });
+  await workflow({ action: 'publish', id: zero.id, version: zero.version });
+  assert.equal((await shared()).find(item => item.id === zero.id).score, 0, 'zero score and no industry do not block publishing');
+  const privateDraft = (await workflow(saveBody)).task;
+  const ownDrafts = (await (await request('/api/tasks', { cookie: business.cookie })).json()).tasks;
+  assert.ok(ownDrafts.some(item => item.id === privateDraft.id));
+  assert.deepEqual((await (await request('/api/tasks', { cookie: otherBusiness.cookie })).json()).tasks, []);
   const proposal = { action: 'createProposal', taskId: created.id, teamName: 'Same team name', solutionIdea: 'A concrete solution idea', plan: 'A concrete project plan', estimatedDuration: '2 weeks', prototypeUrl: '', studentId: otherStudent.user.id };
   status(await request('/api/state', { cookie: business.cookie, body: proposal }), 403, 'business cannot submit student proposal');
   status(await request('/api/state', { cookie: student.cookie, body: { ...proposal, taskId: 999999 } }), 404, 'nonexistent task');
@@ -122,6 +182,18 @@ try {
   status(await request('/api/ai/analyze', { cookie: student.cookie, body: { description: 'Example business task', locale: 'ru' } }), 403, 'students cannot invoke business AI');
   status(await request('/api/ai/analyze', { cookie: business.cookie, body: { description: 'Example business task', locale: 'ru' } }), 200, 'business AI works');
 
+  const analysisResponse = await request('/api/ai/analyze', { cookie: business.cookie, body: { description: 'We have high employee turnover and want to use our HR data to identify employees at risk of leaving.', locale: 'ru' } });
+  status(analysisResponse, 200, 'HR demo analysis');
+  const analysis = await analysisResponse.json();
+  assert.equal(analysis.source, 'fallback');
+  assert.ok(analysis.known.includes('need'));
+  assert.ok(analysis.questions.length >= 3 && analysis.questions.length <= 5);
+  for (const question of analysis.questions) { assert.ok(analysis.missing.includes(question.field)); assert.ok(!analysis.known.includes(question.field)); }
+  assert.equal(analysis.card.successCriteria, ''); assert.equal(analysis.card.contact, '');
+  const labeled = await (await request('/api/ai/analyze', { cookie: business.cookie, body: { description: 'Users: HR managers; Data: CSV; Need: Identify turnover risk', locale: 'kk' } })).json();
+  assert.equal(labeled.card.users, 'HR managers');
+  assert.ok(!labeled.questions.some(question => ['users', 'dataMaterials', 'need'].includes(question.field)));
+
   const inspector = new Database(database);
   const stored = inspector.prepare('SELECT password_hash FROM accounts WHERE id = ?').get(student.user.id);
   assert.match(stored.password_hash, /^scrypt:/); assert.ok(!stored.password_hash.includes(credentials('').password));
@@ -129,6 +201,8 @@ try {
   await stop(); await start();
   status(await request('/api/state', { cookie: signedIn }), 200, 'session survives server restart');
   status(await request('/api/auth/login', { body: loginCredentials('student_a') }), 200, 'account persists');
+  assert.equal((await shared()).find(item => item.id === demoId).score, 65, 'publication survives restart');
+  assert.ok((await (await request('/api/tasks', { cookie: business.cookie })).json()).tasks.some(item => item.id === privateDraft.id), 'private draft survives restart');
   status(await request('/api/auth/logout', { cookie: signedIn, body: {} }), 200, 'logout');
   status(await request('/api/state', { cookie: signedIn }), 401, 'logout revokes server session');
   status(await request('/api/state', { cookie: 'steppemind_session=forged' }), 401, 'forged cookie rejected');
@@ -138,7 +212,7 @@ try {
   status(await request('/api/state', { cookie: otherStudent.cookie }), 401, 'expired session');
   for (let i = 0; i < 10; i++) status(await request('/api/auth/login', { body: loginCredentials('nonexistent') }), 401, 'failed login');
   status(await request('/api/auth/login', { body: loginCredentials('nonexistent') }), 429, 'login rate limit');
-  console.log(`PASS: ${checks} HTTP checks; ownership, password hashes, cookies, session expiry and persistence verified.`);
+  console.log(`PASS: ${checks} HTTP checks; auth, ownership, draft/confirm/publish, 45→80 recalculation, public snapshots, fallback analysis and persistence verified.`);
 } finally {
   await stop();
   await rm(directory, { recursive: true, force: true });

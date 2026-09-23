@@ -3,6 +3,13 @@ import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 export const tasks = sqliteTable("tasks", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   ownerId: integer("owner_id"),
+  draftCard: text("draft_card"),
+  description: text("description").notNull().default(""),
+  version: integer("version").notNull().default(1),
+  confirmedVersion: integer("confirmed_version"),
+  publishedVersion: integer("published_version"),
+  confirmedScore: integer("confirmed_score").notNull().default(0),
+  previousScore: integer("previous_score").notNull().default(0),
   title: text("title").notNull(),
   industry: text("industry").notNull(),
   context: text("context").notNull(),
@@ -33,6 +40,7 @@ export const proposals = sqliteTable("proposals", {
   createdAt: text("created_at").notNull(),
 });
 
-export type Task = typeof tasks.$inferSelect;
+export type Task = Omit<typeof tasks.$inferSelect,
+  "draftCard" | "description" | "version" | "confirmedVersion" | "publishedVersion" | "confirmedScore" | "previousScore">;
 export type NewTask = typeof tasks.$inferInsert;
 export type Proposal = typeof proposals.$inferSelect;
