@@ -1,0 +1,14 @@
+.git
+.next
+node_modules
+npm-debug.log*
+.env*
+!.env.example
+*.db
+*.db-shm
+*.db-wal
+tmp
+coverage
+README.md
+docs
+tests
