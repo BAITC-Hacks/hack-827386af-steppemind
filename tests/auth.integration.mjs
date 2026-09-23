@@ -137,6 +137,8 @@ try {
   await workflow({ ...saveBody, id: demoId, version: 1 }, 409);
   edited = (await workflow({ action: 'confirm', ...current(), confirmed: true })).task;
   assert.equal(edited.previousScore, 45); assert.equal(edited.confirmedScore, 80);
+  assert.equal(edited.evaluation.source, 'fallback', 'confirmation stores the server-side evaluation');
+  assert.equal(edited.evaluation.breakdown.length, 7, 're-evaluation covers every rating category');
   edited = (await workflow({ action: 'publish', ...current() })).task;
   let publicDemo = (await shared()).find(item => item.id === demoId);
   assert.equal(publicDemo.score, 80); assert.equal(publicDemo.readinessLevel, 'ready');
@@ -145,6 +147,7 @@ try {
   assert.equal(publicDemo.title, 'Turnover demo'); assert.equal(publicDemo.score, 80);
   edited = (await workflow({ action: 'confirm', ...current(), confirmed: true })).task;
   assert.equal(edited.confirmedScore, 65); assert.equal(edited.previousScore, 80);
+  assert.equal(edited.evaluation.score, 65, 'edited information produces a fresh evaluation');
   assert.equal((await shared()).find(item => item.id === demoId).score, 80, 'confirmation does not publish');
   await workflow({ action: 'publish', ...current() });
   await workflow({ action: 'publish', ...current() });

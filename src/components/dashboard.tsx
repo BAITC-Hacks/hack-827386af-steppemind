@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowRight, CalendarDays, Check, ChevronDown, ExternalLink, Filter, Languages, LayoutDashboard, Loader2, LogOut, Sparkles, UserRound } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, ChevronDown, ExternalLink, Filter, Languages, LayoutDashboard, Loader2, LogOut, Pencil, Sparkles, UserRound } from "lucide-react";
 import { readinessLevel } from "@/lib/scoring";
 import TaskWorkflow from "./business/TaskWorkflow";
 import WorkflowRating from "./business/WorkflowRating";
@@ -35,7 +35,7 @@ const copy = {
   },
 } as const;
 
-export default function Dashboard({ user, initialView = "catalog" }: { user: SessionUser; initialView?: View }) {
+export default function Dashboard({ user, initialView = "catalog", initialTaskId }: { user: SessionUser; initialView?: View; initialTaskId?: number }) {
   const router = useRouter();
   const [locale, setLocale] = useState<Locale>("ru");
   const role: Role = user.role === "business" ? "business" : "team";
@@ -108,8 +108,8 @@ export default function Dashboard({ user, initialView = "catalog" }: { user: Ses
       {error && <div role="alert" className="mb-6 rounded-xl bg-red-50 p-4 text-red-700">{t.error} <button className="underline" onClick={refresh}>{locale === "ru" ? "Повторить" : "Қайталау"}</button></div>}
       {loading ? <div className="py-20 text-center"><Loader2 className="mx-auto animate-spin" />{t.loading}</div> : <>
         {view === "dashboard" && <DashboardHome t={t} locale={locale} user={user} state={state} />}
-        {view === "catalog" && <Catalog locale={locale} industries={[...new Set(state.tasks.map(task => task.industry).filter(Boolean))]} t={t} tasks={tasks} proposalCounts={state.proposalCounts} filter={filter} setFilter={setFilter} role={role} userName={user.name} />}
-        {view === "create" && role === "business" && <TaskWorkflow locale={locale} onCatalog={async () => { await refresh(); router.push("/catalog"); }} />}
+        {view === "catalog" && <Catalog locale={locale} industries={[...new Set(state.tasks.map(task => task.industry).filter(Boolean))]} t={t} tasks={tasks} proposalCounts={state.proposalCounts} filter={filter} setFilter={setFilter} role={role} userId={user.id} userName={user.name} />}
+        {view === "create" && role === "business" && <TaskWorkflow locale={locale} initialTaskId={initialTaskId} onCatalog={async () => { await refresh(); router.push("/catalog"); }} />}
         {view === "proposals" && <ProposalList t={t} locale={locale} state={state} role={role} refresh={refresh} />}
       </>}
     </main>
@@ -137,29 +137,29 @@ function DashboardHome({t,locale,user,state}:{t:typeof copy.ru|typeof copy.kk;lo
     </div>
     <section className="mt-8">
       <div className="mb-4 flex items-center justify-between"><h2 className="text-2xl font-black">{isBusiness ? t.myTasks : t.myProposals}</h2>{isBusiness&&<Link className="primary" href="/business/tasks/new">{t.create}</Link>}</div>
-      {isBusiness ? <TaskCards tasks={ownTasks} proposalCounts={state.proposalCounts} t={t}/> : <ProposalList t={t} locale={locale} state={state} role="team" refresh={async()=>{}} compact/>}
+      {isBusiness ? <TaskCards tasks={ownTasks} proposalCounts={state.proposalCounts} t={t} locale={locale}/> : <ProposalList t={t} locale={locale} state={state} role="team" refresh={async()=>{}} compact/>}
     </section>
   </div>;
 }
 
-function TaskCards({tasks,proposalCounts,t}:{tasks:Task[];proposalCounts:Record<number,number>;t:typeof copy.ru|typeof copy.kk}) {
+function TaskCards({tasks,proposalCounts,t,locale}:{tasks:Task[];proposalCounts:Record<number,number>;t:typeof copy.ru|typeof copy.kk;locale:Locale}) {
   if (!tasks.length) return <div className="card p-10 text-center text-slate-500">{t.empty}</div>;
-  return <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{tasks.map(task=><article key={task.id} className="card p-6"><div className="mb-4 flex justify-between"><span className="tag">{task.industry}</span><Score value={task.score}/></div><h3 className="text-lg font-extrabold">{task.title}</h3><p className="mt-3 text-sm text-slate-500">{proposalCounts[task.id]??0} {t.responses}</p></article>)}</div>;
+  return <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{tasks.map(task=><article key={task.id} className="card p-6"><div className="mb-4 flex justify-between"><span className="tag">{task.industry}</span><Score value={task.score}/></div><h3 className="text-lg font-extrabold">{task.title}</h3><p className="mt-3 text-sm text-slate-500">{proposalCounts[task.id]??0} {t.responses}</p><Link href={`/business/tasks/new?task=${task.id}`} className="secondary mt-5"><Pencil size={16}/>{locale==="ru"?"Редактировать и пересчитать":"Өңдеу және қайта есептеу"}</Link></article>)}</div>;
 }
 
 function Nav({active,href,children}:{active:boolean;href:string;children:React.ReactNode}){return <Link href={href} className={`rounded-lg px-3 py-2 text-sm font-semibold ${active?"bg-indigo-50 text-indigo-700":"text-slate-600"}`}>{children}</Link>}
 function Score({value}:{value:number}){return <div className="grid size-14 place-items-center rounded-full" style={{background:`conic-gradient(#4f46e5 ${value}%,#e2e8f0 0)`}}><div className="grid size-11 place-items-center rounded-full bg-white text-sm font-black">{value}</div></div>}
 
-function Catalog({locale,industries,t,tasks,proposalCounts,filter,setFilter,role,userName}:{locale:Locale;industries:string[];t:typeof copy.ru|typeof copy.kk;tasks:Task[];proposalCounts:Record<number,number>;filter:string;setFilter:(x:string)=>void;role:Role;userName:string}){const router=useRouter();const [selected,setSelected]=useState<Task|null>(null);
+function Catalog({locale,industries,t,tasks,proposalCounts,filter,setFilter,role,userId,userName}:{locale:Locale;industries:string[];t:typeof copy.ru|typeof copy.kk;tasks:Task[];proposalCounts:Record<number,number>;filter:string;setFilter:(x:string)=>void;role:Role;userId:number;userName:string}){const router=useRouter();const [selected,setSelected]=useState<Task|null>(null);
   const [industry,setIndustry]=useState("");
   const [sort,setSort]=useState("desc");
   const visible=tasks.filter(task=>!industry||task.industry===industry).toSorted((a,b)=>sort==="asc"?a.score-b.score||a.id-b.id:b.score-a.score||b.id-a.id);
   return <><section className="mb-10 rounded-3xl bg-slate-950 px-8 py-10 text-white md:px-12"><span className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-indigo-200"><Sparkles size={13}/>{t.tagline}</span><h1 className="max-w-3xl text-4xl font-black md:text-5xl">{t.hero}</h1><p className="mt-4 max-w-2xl text-slate-300">{t.heroText}</p></section><div className="mb-6 flex flex-wrap gap-2"><Filter size={17}/>{["all","draft","workable","ready","priority"].map(k=><button key={k} onClick={()=>setFilter(k)} className={`rounded-full px-4 py-2 text-sm font-semibold ${filter===k?"bg-indigo-600 text-white":"border bg-white"}`}>{t[k as "all"|"draft"|"workable"|"ready"|"priority"]}</button>)}</div><div className="mb-6 flex flex-wrap gap-4">
     <label className="text-sm font-semibold">{locale==="ru"?"Отрасль / тема":"Сала / тақырып"}<select className="input mt-2" value={industry} onChange={e=>setIndustry(e.target.value)}><option value="">{t.all}</option>{industries.map(value=><option key={value}>{value}</option>)}</select></label>
     <label className="text-sm font-semibold">{locale==="ru"?"Сортировка по готовности":"Дайындық бойынша сұрыптау"}<select className="input mt-2" value={sort} onChange={e=>setSort(e.target.value)}><option value="desc">{locale==="ru"?"Сначала наиболее готовые":"Алдымен ең дайындары"}</option><option value="asc">{locale==="ru"?"Сначала наименее готовые":"Алдымен дайындығы төмендері"}</option></select></label>
-  </div>{!visible.length&&<p className="card p-8">{locale==="ru"?"Нет задач по выбранным фильтрам":"Таңдалған сүзгілер бойынша міндеттер жоқ"}</p>}<div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{visible.map(task=><article key={task.id} className="card flex flex-col p-6"><div className="mb-5 flex justify-between"><span className="tag">{task.industry}</span><div className="flex flex-col items-center gap-1"><Score value={task.score}/><span className="text-xs text-slate-600">{t[readinessLevel(task.score)]} · {task.score}/100</span></div></div><h2 className="text-xl font-extrabold">{task.title}</h2><p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">{task.need||task.context}</p><div className="mt-auto flex justify-between border-t pt-5"><span className="text-xs text-slate-500">{proposalCounts[task.id] ?? 0} {t.responses}</span><button onClick={()=>setSelected(task)} className="font-bold text-indigo-600">{role==="team"?t.proposal:t.open} <ArrowRight className="inline" size={15}/></button></div></article>)}</div>{selected&&<TaskModal locale={locale} task={selected} userName={userName} role={role} t={t} close={()=>setSelected(null)} done={()=>{setSelected(null);router.push("/student/proposals");router.refresh()}}/>}</>}
+  </div>{!visible.length&&<p className="card p-8">{locale==="ru"?"Нет задач по выбранным фильтрам":"Таңдалған сүзгілер бойынша міндеттер жоқ"}</p>}<div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{visible.map(task=><article key={task.id} className="card flex flex-col p-6"><div className="mb-5 flex justify-between"><span className="tag">{task.industry}</span><div className="flex flex-col items-center gap-1"><Score value={task.score}/><span className="text-xs text-slate-600">{t[readinessLevel(task.score)]} · {task.score}/100</span></div></div><h2 className="text-xl font-extrabold">{task.title}</h2><p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">{task.need||task.context}</p><div className="mt-auto flex justify-between border-t pt-5"><span className="text-xs text-slate-500">{proposalCounts[task.id] ?? 0} {t.responses}</span><button onClick={()=>setSelected(task)} className="font-bold text-indigo-600">{role==="team"?t.proposal:t.open} <ArrowRight className="inline" size={15}/></button></div></article>)}</div>{selected&&<TaskModal locale={locale} task={selected} userName={userName} role={role} canEdit={role==="business"&&selected.ownerId===userId} t={t} close={()=>setSelected(null)} done={()=>{setSelected(null);router.push("/student/proposals");router.refresh()}}/>}</>}
 
-function TaskModal({locale,task,userName,role,t,close,done}:{locale:Locale;task:Task;userName:string;role:Role;t:typeof copy.ru|typeof copy.kk;close:()=>void;done:()=>void}){
+function TaskModal({locale,task,userName,role,canEdit,t,close,done}:{locale:Locale;task:Task;userName:string;role:Role;canEdit:boolean;t:typeof copy.ru|typeof copy.kk;close:()=>void;done:()=>void}){
   return <div role="dialog" aria-modal="true" aria-labelledby="task-title" className="fixed inset-0 z-40 grid place-items-center bg-slate-950/50 p-4" onMouseDown={close}>
     <div className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-3xl bg-white p-7" onMouseDown={event=>event.stopPropagation()}>
       <button onClick={close} aria-label={locale==="ru"?"Закрыть":"Жабу"} className="float-right text-2xl">×</button>
@@ -168,6 +168,7 @@ function TaskModal({locale,task,userName,role,t,close,done}:{locale:Locale;task:
       <p className="mt-5 leading-7 text-slate-600">{task.context}</p>
       <div className="mt-6 grid gap-4 md:grid-cols-2">{(["need","users","dataMaterials","constraints","expectedResult","successCriteria","contact","interactionFormat"] as const).map(key=><div key={key} className="rounded-xl bg-slate-50 p-4"><p className="mb-1 text-xs font-bold uppercase text-slate-400">{t.fields[key]}</p><p className="text-sm leading-6">{task[key]||(locale==="ru"?"⚠ Не указано":"⚠ Көрсетілмеген")}</p></div>)}</div>
       <div className="mt-6"><WorkflowRating card={task} locale={locale} confirmed /></div>
+      {canEdit&&<Link href={`/business/tasks/new?task=${task.id}`} className="primary mt-6"><Pencil size={16}/>{locale==="ru"?"Редактировать и пересчитать рейтинг":"Өңдеу және рейтингті қайта есептеу"}</Link>}
       {role==="team"&&<ProposalForm taskId={task.id} initialTeamName={userName} locale={locale} onSubmitted={done}/>}
     </div>
   </div>;
