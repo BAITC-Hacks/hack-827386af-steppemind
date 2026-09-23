@@ -92,7 +92,7 @@ try {
   status(await request('/student/proposals', { cookie: student.cookie }), 200, 'student proposals page');
   status(await request('/login', { cookie: signedIn }), 307, 'authenticated login redirects');
 
-  const task = { title: 'Integration task', industry: 'Education', context: 'Context', need: 'Need', users: '', dataMaterials: '', constraints: '', expectedResult: '', successCriteria: '', contact: '', interactionFormat: '', language: 'ru', ownerId: otherBusiness.user.id };
+  const task = { title: 'Integration task', industry: 'Education', context: 'The current support process is manual', need: 'Reduce customer request processing time', users: '', dataMaterials: '', constraints: '', expectedResult: '', successCriteria: '', contact: '', interactionFormat: '', language: 'ru', ownerId: otherBusiness.user.id };
   const create = { action: 'createTask', task };
   status(await request('/api/state', { cookie: student.cookie, body: create }), 403, 'student cannot publish');
   const savedResponse = await request('/api/state', { cookie: business.cookie, body: create });
@@ -124,14 +124,14 @@ try {
   for (const key of ['draftCard', 'description', 'version', 'confirmedVersion', 'confirmedScore', 'previousScore']) assert.equal(created[key], undefined);
 
   // A new 45-point card progresses to 80, then changes again without leaking a working copy.
-  const card45 = { title: 'Turnover demo', industry: 'HR', context: 'Employee turnover', need: 'Identify risk', users: 'HR', dataMaterials: '', constraints: '', expectedResult: 'Risk report', successCriteria: '', contact: '', interactionFormat: '' };
+  const card45 = { title: 'Turnover demo', industry: 'HR', context: 'Employee turnover remains consistently high', need: 'Identify employees with increased departure risk', users: 'HR managers', dataMaterials: '', constraints: '', expectedResult: 'A detailed employee risk assessment report', successCriteria: '', contact: '', interactionFormat: '' };
   const saveBody = { action: 'save', card: card45, description: 'Employee turnover', language: 'ru' };
   let edited = (await workflow(saveBody)).task;
   const demoId = edited.id;
   const current = () => ({ id: demoId, version: edited.version });
   edited = (await workflow({ action: 'confirm', ...current(), confirmed: true })).task;
   assert.equal(edited.confirmedScore, 45);
-  edited = (await workflow({ ...saveBody, ...current(), card: { ...card45, dataMaterials: 'CSV', successCriteria: 'Recall >= 80%' } })).task;
+  edited = (await workflow({ ...saveBody, ...current(), card: { ...card45, dataMaterials: 'Historical HR records in CSV format', successCriteria: 'Recall at least 80% on the test set' } })).task;
   assert.equal(edited.confirmedVersion, null); assert.equal(edited.status, 'draft');
   await workflow({ action: 'publish', ...current() }, 409);
   await workflow({ ...saveBody, id: demoId, version: 1 }, 409);

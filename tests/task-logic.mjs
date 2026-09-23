@@ -18,18 +18,27 @@ try {
   const { calculateScore, readinessLevel } = await import(pathToFileURL(join(directory, 'scoring.mjs')));
   const { groundedCard, extractLocally, buildAnalysis } = await import(pathToFileURL(join(directory, 'task-analysis.mjs')));
   const groups = [['context', 'need'], ['dataMaterials'], ['expectedResult'], ['successCriteria'], ['constraints'], ['users'], ['contact', 'interactionFormat']];
+  const valid = {
+    context: 'The current support process is manual', need: 'Reduce customer request processing time',
+    dataMaterials: 'Historical requests in CSV format', expectedResult: 'A working request classification prototype',
+    successCriteria: 'Classification accuracy at least 80%', constraints: 'Prototype deadline is two weeks',
+    users: 'Support operators', contact: 'owner@example.com', interactionFormat: 'Weekly online feedback meeting',
+  };
   const weights = [20, 20, 15, 15, 10, 10, 10];
   for (let mask = 0; mask < 128; mask++) {
     const card = { ...emptyTaskCard }; let expected = 0;
-    groups.forEach((fields, index) => { if (mask & (1 << index)) { expected += weights[index]; fields.forEach(field => { card[field] = 'HR'; }); } });
+    groups.forEach((fields, index) => { if (mask & (1 << index)) { expected += weights[index]; fields.forEach(field => { card[field] = valid[field]; }); } });
     const rating = calculateScore(card);
     assert.equal(rating.score, expected);
     assert.deepEqual(rating.breakdown.map(item => item.weight), weights);
     assert.equal(rating.breakdown.reduce((total, item) => total + (item.earned ? item.weight : 0), 0), rating.score);
   }
   for (const [score, level] of [[0,'draft'],[39,'draft'],[40,'workable'],[69,'workable'],[70,'ready'],[89,'ready'],[90,'priority'],[100,'priority']]) assert.equal(readinessLevel(score), level);
-  assert.equal(calculateScore({ ...emptyTaskCard, context: 'Known', contact: 'Contact' }).score, 0, 'paired categories need both fields');
+  assert.equal(calculateScore({ ...emptyTaskCard, context: valid.context, contact: valid.contact }).score, 0, 'paired categories need both fields');
   assert.equal(calculateScore({ ...emptyTaskCard, users: ' \n ' }).score, 0);
+  assert.equal(calculateScore({ ...emptyTaskCard, dataMaterials: 'CSV', users: 'x', expectedResult: 'Report' }).score, 0, 'token fields do not earn points');
+  assert.equal(calculateScore({ ...emptyTaskCard, successCriteria: 'The result should be better' }).score, 0, 'criteria must be measurable');
+  assert.equal(calculateScore({ ...emptyTaskCard, successCriteria: 'Error below 20% on the test set' }).score, 15, 'measurable criteria earn points');
   const description = 'We have high employee turnover and want to use our HR data to identify employees at risk of leaving.';
   const extracted = extractLocally(description);
   assert.equal(extracted.users, ''); assert.equal(extracted.successCriteria, '');

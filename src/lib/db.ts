@@ -6,6 +6,7 @@ import type { SessionUser } from "./auth-types";
 import { calculateScore, readinessLevel } from "./scoring";
 
 export const sqlite = new Database(process.env.DATABASE_PATH ?? "steppemind.db");
+sqlite.pragma("busy_timeout = 5000");
 sqlite.pragma("journal_mode = WAL");
 sqlite.exec(`
   CREATE TABLE IF NOT EXISTS tasks (
@@ -129,12 +130,15 @@ if ((sqlite.prepare("SELECT COUNT(*) AS count FROM tasks").get() as { count: num
   }).run();
 }
 
-// Existing published cards stay published. Initialize version metadata once; never adopt a new owner.
+// Existing published cards stay published. Recalculate their public snapshot when scoring rules evolve.
 sqlite.transaction(() => {
   for (const task of db.select().from(tasks).where(eq(tasks.status, "published")).all()) {
+    const score = calculateScore(task).score;
     if (task.publishedVersion === null) {
-      const score = calculateScore(task).score;
       db.update(tasks).set({ confirmedVersion: task.version, publishedVersion: task.version, score, confirmedScore: score })
+        .where(eq(tasks.id, task.id)).run();
+    } else if (task.score !== score || (task.confirmedVersion === task.publishedVersion && task.confirmedScore !== score)) {
+      db.update(tasks).set({ score, ...(task.confirmedVersion === task.publishedVersion ? { confirmedScore: score } : {}) })
         .where(eq(tasks.id, task.id)).run();
     }
   }
