@@ -1,249 +1,376 @@
 # SteppeMind
 
-SteppeMind is an AI-powered platform that turns vague business problems into structured, publishable task briefs and connects them with student teams ready to propose solutions.
+SteppeMind — веб-платформа для подготовки качественных бизнес-задач и открытого выбора студенческих команд. Бизнес описывает проблему свободным текстом, AI выявляет недостающие сведения и формирует уточняющие вопросы, после чего пользователь проверяет карточку, получает рейтинг готовности и публикует задачу в общем каталоге. Студенты самостоятельно выбирают задачи и отправляют предложения, а бизнес вручную принимает одну, несколько команд или отклоняет все предложения.
 
-It solves a real bottleneck in challenge-driven learning: businesses often post unclear problems, and students struggle to respond with high-quality proposals because the brief is weak, incomplete, or inconsistent. SteppeMind fixes this by combining guided task creation, AI-assisted clarification, transparent readiness scoring, and human review of proposals.
+Проект подготовлен к самостоятельному запуску и технической проверке двумя способами:
 
-## Why this project is powerful
+- напрямую через Node.js;
+- в production-контейнере Docker.
 
-This project stands out because it is not just a generic AI demo. It is a full workflow that creates real value for both sides:
+## Назначение решения
 
-- Businesses can describe a problem in plain language and get a structured task card instead of a messy note.
-- Students get better briefs, clearer requirements, and better visibility into task quality before they invest time.
-- The platform makes tasks easier to evaluate and easier to respond to.
-- The final decision stays in human hands, which keeps the workflow trustworthy and realistic.
-- AI helps refine the task without inventing facts or taking away business control.
-- The app works in demo mode even without an external API key, which makes it reliable for presentations and tests.
+Платформа решает проблему неполных и неоднозначных заданий от бизнеса. Она помогает превратить короткую формулировку в структурированную карточку со следующими полями:
 
-This is the kind of project that feels immediately useful in a real-world setting and easy to explain to judges in a live demo.
+- название и отрасль;
+- контекст и потребность бизнеса;
+- целевые пользователи;
+- доступные данные и материалы;
+- ограничения;
+- ожидаемый результат;
+- критерии успеха;
+- контакт и формат взаимодействия.
 
----
+Основной сценарий:
 
-## The problem we solve
+1. Бизнес вводит исходное описание задачи.
+2. AI извлекает только факты из описания и создаёт 3–5 релевантных вопросов по пропущенным сведениям.
+3. Ответы попадают в редактируемую карточку.
+4. Бизнес вручную проверяет и подтверждает текущую версию.
+5. Система рассчитывает рейтинг готовности от 0 до 100 и показывает расшифровку.
+6. Бизнес отдельно публикует подтверждённую версию.
+7. Студент находит задачу в каталоге и отправляет предложение.
+8. Владелец задачи вручную принимает или отклоняет предложение. Автоматического назначения команд нет.
 
-Many business tasks are published as vague, under-specified ideas such as:
+Низкий рейтинг не скрывает опубликованную задачу и не запрещает студентам отправлять предложения.
 
-- “We need a better system”
-- “We want to improve efficiency”
-- “We need a mobile app for our company”
+## Возможности
 
-Those descriptions are too weak for students to act on confidently. The result is poor-quality proposals, unclear expectations, wasted effort, and frustration on both sides.
+### Для бизнеса
 
-SteppeMind solves this by guiding the business user through a structured task-creation flow:
+- регистрация и вход с ролью «Бизнес»;
+- создание и сохранение черновиков;
+- AI-анализ исходного описания;
+- уточняющие вопросы на русском или казахском языке;
+- редактирование всех полей карточки;
+- отдельные действия подтверждения и публикации;
+- AI-оценка качества подтверждённых сведений с пояснениями;
+- повторная оценка после изменения карточки;
+- сохранение последней опубликованной версии до повторной публикации;
+- просмотр предложений только к собственным задачам;
+- ручное принятие и отклонение нескольких предложений.
 
-- clarify the business context
-- define the need and users
-- state the expected output and success criteria
-- capture constraints and communication details
-- generate a score that reflects readiness and completeness
+### Для студентов
 
-The result is a cleaner, more actionable task that students can understand and respond to properly.
+- регистрация и вход с ролью «Студент»;
+- просмотр общего каталога опубликованных задач;
+- фильтрация по отрасли и уровню готовности;
+- сортировка по рейтингу;
+- просмотр полной карточки задачи;
+- отправка неограниченного количества предложений;
+- просмотр собственных предложений и их статусов.
 
----
+### Надёжность и безопасность
 
-## How the product works
+- ключ OpenAI используется только на сервере;
+- AI-ответы проверяются через Zod Structured Outputs;
+- извлечённые факты принимаются только при наличии точной цитаты в исходном описании;
+- при отсутствии или ошибке OpenAI используется локальный fallback;
+- пароли хешируются с помощью `scrypt` и индивидуальной соли;
+- сессии хранятся на сервере, cookie имеет `HttpOnly` и `SameSite=Lax`;
+- сервер проверяет роль, владельца задачи, версию черновика и источник изменяющих запросов;
+- приватные черновики и содержание чужих предложений не выдаются в общий каталог.
 
-### 1. Business creates a challenge
-The business user writes a short description of the problem in plain language.
+## Архитектура
 
-### 2. AI asks clarifying questions
-The platform analyzes the task and asks targeted follow-up questions to uncover missing information. This helps transform rough input into a useful brief.
-
-### 3. Business reviews and edits the draft
-The generated task card is editable before confirmation. The business can refine the wording, adjust fields, and correct mistakes before publishing.
-
-### 4. Readiness is scored transparently
-The task receives a readiness score from 0 to 100, with a breakdown by category. This makes it easy to understand what is strong and what still needs work.
-
-### 5. The task is published to the catalog
-Once confirmed, the task appears in a shared catalog where students can browse and evaluate it.
-
-### 6. Students submit proposals
-Student teams can apply to published tasks with a structured proposal: team name, idea, implementation plan, timeline, and optional prototype link.
-
-### 7. Business chooses the team
-The business owner reviews the proposals and manually accepts or rejects them. Multiple teams can be accepted if relevant.
-
-This is a practical matchmaking flow: better brief quality leads to better proposals, and humans make the final decision.
-
----
-
-## Main advantages of the project
-
-### AI that improves quality, not chaos
-The app does not invent facts. Instead, it helps identify missing information and encourages the business to provide precise details. This keeps the workflow trustworthy and grounded.
-
-### Transparent evaluation
-Every task can be scored based on completeness and quality. This gives businesses a clear idea of how ready their brief is and gives students a better sense of task quality before they apply.
-
-### Human-in-the-loop control
-The business remains in charge. The system does not auto-assign students or fabricate decisions. It supports fast matching while keeping human judgment central.
-
-### Strong demo appeal
-This product has a clear story that is easy to show live:
-
-- rough business idea
-- AI clarification
-- structured task card
-- scored readiness
-- published challenge
-- student proposals
-- business approval
-
-That narrative is compelling, easy to explain, and persuasive in a contest setting.
-
-### Works even without external AI
-If no OpenAI API key is configured, the app falls back to a local evaluation model. This makes the project resilient, testable, and demo-friendly.
-
-### Clean and lightweight architecture
-The app is built with a modern stack that is easy to understand and extend:
-
-- Next.js
-- TypeScript
-- SQLite
-- Drizzle ORM
-- React
-
-This gives the project a solid technical foundation without unnecessary complexity.
-
----
-
-## Tech stack
-
-- Next.js
-- TypeScript
-- SQLite
-- Drizzle ORM
-- OpenAI integration with fallback evaluation
-- React UI components
-
-This combination is well-suited for a strong MVP: modern enough to impress, simple enough to run locally, and robust enough for real workflow logic.
-
----
-
-## Quick start
-
-### Prerequisites
-
-- Node.js 20+ recommended (24 LTS is ideal)
-- npm
-- Git
-
-### 1. Install dependencies
-
-```bash
-npm install
+```text
+Браузер
+   │
+   ▼
+Next.js App Router
+   ├── React-интерфейс и маршруты страниц
+   ├── Route Handlers: авторизация, задачи, каталог, предложения
+   ├── бизнес-логика черновика → подтверждения → публикации
+   └── серверная интеграция OpenAI Responses API
+           │
+           ▼
+SQLite через Drizzle ORM и better-sqlite3
 ```
 
-Or use the exact lockfile version:
+Основные каталоги:
 
-```bash
-npm ci
-```
+| Путь | Назначение |
+| --- | --- |
+| `src/app` | Страницы App Router и серверные API-маршруты |
+| `src/components` | Интерфейс авторизации, каталога, дашбордов и конструктора |
+| `src/lib` | Работа с БД, авторизация, AI, рейтинг, валидация и workflow |
+| `tests` | Модульные и интеграционные проверки |
+| `docs` | Дополнительная документация и сценарии демонстрации |
+| `Dockerfile` | Многоэтапная production-сборка контейнера |
 
-### 2. Set up environment variables
+### Хранение данных
 
-Create a local environment file:
+По умолчанию используется файл `steppemind.db` в корне проекта. При первом обращении приложение автоматически:
+
+- создаёт таблицы и индексы;
+- применяет аддитивные миграции;
+- добавляет воспроизводимый демонстрационный набор данных;
+- не создаёт повторные копии демо-записей при перезапуске.
+
+Для Docker база хранится в `/app/data/steppemind.db`. Эту директорию необходимо подключать как persistent volume.
+
+## Используемые технологии
+
+| Технология | Назначение |
+| --- | --- |
+| Next.js 16 App Router | Полнофункциональное React-приложение и серверные маршруты |
+| React 19 | Пользовательский интерфейс |
+| TypeScript | Типизация приложения |
+| Tailwind CSS 4 | Стилизация интерфейса |
+| SQLite | Локальное постоянное хранилище |
+| Drizzle ORM | Типизированный доступ к БД |
+| better-sqlite3 | SQLite-драйвер для Node.js |
+| OpenAI JavaScript SDK | Анализ задачи, вопросы и оценка готовности |
+| Zod | Валидация HTTP- и AI-ответов |
+| Lucide React | Иконки интерфейса |
+| Docker | Воспроизводимый production-запуск |
+
+Точные версии зависимостей зафиксированы в `package-lock.json`.
+
+## Переменные окружения
+
+Создайте `.env.local` на основе примера:
 
 ```bash
 cp .env.example .env.local
 ```
 
-Then optionally add your API key:
+| Переменная | Обязательна | Значение и назначение |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | Нет | API-ключ OpenAI. Без него работает локальный fallback |
+| `OPENAI_MODEL` | Нет | Модель OpenAI; значение по умолчанию — `gpt-5.4-nano` |
+| `OPENAI_BASE_URL` | Нет | Альтернативный OpenAI-совместимый endpoint |
+| `DATABASE_PATH` | Нет | Путь к SQLite; по умолчанию `steppemind.db` |
+| `SEED_DEMO_DATA` | Нет | Установите `0`, чтобы отключить создание демо-аккаунтов в новой БД |
+| `PORT` | Нет | Порт production-сервера; по умолчанию `3000` |
+| `HOSTNAME` | Нет | Адрес прослушивания; для контейнера используется `0.0.0.0` |
 
-```bash
-OPENAI_API_KEY=your_key_here
+Минимальный `.env.local` для AI-режима:
+
+```dotenv
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-5.4-nano
+DATABASE_PATH=steppemind.db
 ```
 
-If you do not provide an API key, the app will still function using the built-in local fallback logic. This is perfect for local testing and demo usage.
+Для запуска без внешнего API оставьте `OPENAI_API_KEY` пустым. Секреты нельзя коммитить в Git или встраивать в Docker-образ; `.env.local` исключён из Docker build context.
 
-### 3. Run the app
+## Способ 1: запуск через Node.js
+
+### Системные требования
+
+- Node.js 24 LTS;
+- npm;
+- Git;
+- инструменты сборки C/C++ и Python 3, если для `better-sqlite3` нет готового бинарного пакета.
+
+Для Debian/Ubuntu инструменты сборки устанавливаются так:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y python3 make g++
+```
+
+На macOS при необходимости установите Command Line Tools:
+
+```bash
+xcode-select --install
+```
+
+### Установка
+
+```bash
+git clone <URL_РЕПОЗИТОРИЯ>
+cd hack-827386af-steppemind
+npm ci
+cp .env.example .env.local
+```
+
+После копирования укажите `OPENAI_API_KEY` в `.env.local`, если требуется настоящий AI-режим.
+
+### Режим разработки
 
 ```bash
 npm run dev
 ```
 
-Then open:
+Откройте:
 
 ```text
 http://localhost:3000
 ```
 
-### 4. Use the app
+Изменения кода применяются автоматически. Этот режим предназначен для разработки, а не для публичного размещения.
 
-The app starts with a login screen. You can register as either:
+### Production-режим через Node.js
 
-- Business user
-- Student user
+```bash
+npm run build
+npm start
+```
 
-After registration, the system signs you in automatically and takes you to the right experience for your role.
+Сервер будет доступен по адресу `http://localhost:3000`.
 
----
+Чтобы открыть приложение для других устройств в локальной сети:
 
-## Demo dataset for judges
+```bash
+HOSTNAME=0.0.0.0 PORT=3000 npm start
+```
 
-On startup, SQLite idempotently creates the required demo dataset: 5 drafts with different levels of completeness, 5 published task cards with readiness scores, 5 student team profiles, and 5 proposals linked to those teams and tasks. Team profiles appear in the catalog. Drafts and incoming proposals are visible through the demo business account.
+После этого используйте `http://IP_КОМПЬЮТЕРА:3000`. Системный firewall должен разрешать входящие подключения к выбранному порту.
 
-| Role | Login | Password |
+## Способ 2: запуск через Docker
+
+### Системные требования
+
+- Docker Engine либо Docker Desktop;
+- свободный порт `3000`.
+
+Локальная установка Node.js при запуске через Docker не требуется.
+
+### Сборка образа
+
+В корне репозитория выполните:
+
+```bash
+docker build -t steppemind .
+```
+
+Dockerfile использует multi-stage build, компилирует `better-sqlite3`, создаёт standalone-сборку Next.js и запускает приложение от непривилегированного пользователя.
+
+### Запуск контейнера
+
+```bash
+docker run -d \
+  --name steppemind \
+  --restart unless-stopped \
+  --env-file .env.local \
+  -e DATABASE_PATH=/app/data/steppemind.db \
+  -p 3000:3000 \
+  -v steppemind-data:/app/data \
+  steppemind
+```
+
+Откройте `http://localhost:3000`.
+
+Назначение параметров:
+
+- `--env-file .env.local` передаёт настройки во время запуска, не добавляя секреты в образ;
+- `-e DATABASE_PATH=/app/data/steppemind.db` направляет SQLite в постоянное хранилище;
+- `-v steppemind-data:/app/data` сохраняет БД при пересоздании контейнера;
+- `-p 3000:3000` публикует приложение на всех сетевых интерфейсах хоста;
+- `--restart unless-stopped` автоматически перезапускает контейнер после перезагрузки сервера.
+
+Проверка состояния и просмотр логов:
+
+```bash
+docker ps
+docker logs -f steppemind
+```
+
+Остановка и повторный запуск:
+
+```bash
+docker stop steppemind
+docker start steppemind
+```
+
+Обновление после изменения кода:
+
+```bash
+docker build -t steppemind .
+docker stop steppemind
+docker rm steppemind
+docker run -d \
+  --name steppemind \
+  --restart unless-stopped \
+  --env-file .env.local \
+  -e DATABASE_PATH=/app/data/steppemind.db \
+  -p 3000:3000 \
+  -v steppemind-data:/app/data \
+  steppemind
+```
+
+Именованный volume `steppemind-data` при этом не удаляется, поэтому данные сохраняются. Команда `docker volume rm steppemind-data` удалит базу без возможности восстановления и для обычного обновления не нужна.
+
+### Доступ из локальной сети или интернета
+
+При публикации `-p 3000:3000` приложение доступно по адресу:
+
+```text
+http://IP_СЕРВЕРА:3000
+```
+
+Для публичного размещения рекомендуется поставить перед контейнером Nginx или Caddy, открыть только порты 80/443 и настроить HTTPS. Не публикуйте файл SQLite и не открывайте к нему сетевой доступ.
+
+## Демонстрационные данные
+
+При запуске с новой базой автоматически создаются:
+
+- 5 черновиков разной полноты;
+- 5 опубликованных карточек;
+- 5 профилей студенческих команд;
+- 5 предложений;
+- один бизнес-аккаунт и пять студенческих аккаунтов.
+
+| Роль | Логин | Пароль |
 | --- | --- | --- |
-| Business | `demo_business` | `Demo2026!` |
-| Students | `demo_student_1` through `demo_student_5` | `Demo2026!` |
+| Бизнес | `demo_business` | `Demo2026!` |
+| Студенты | `demo_student_1` … `demo_student_5` | `Demo2026!` |
 
-Repeated starts do not create duplicates. Set `SEED_DEMO_DATA=0` before the first start with a new database to disable the known hackathon demo accounts.
+Демо-данные создаются идемпотентно. Чтобы отключить их для новой базы, задайте `SEED_DEMO_DATA=0` до первого запуска.
 
----
+## Порядок проверки основного сценария
 
-## Typical end-to-end flow
+Для полного сценария удобно использовать два отдельных окна браузера или обычное и приватное окно.
 
-### For businesses
-1. Sign up as a business user.
-2. Start a new challenge.
-3. Describe the problem in plain language.
-4. Answer the AI clarifying questions.
-5. Review and edit the generated task card.
-6. Confirm the final task.
-7. Check the score and readiness breakdown.
-8. Publish the task in the shared catalog.
-9. Review incoming proposals and accept the best team or teams.
+### 1. Проверка роли бизнеса и конструктора
 
-### For students
-1. Sign up as a student user.
-2. Browse the published catalog.
-3. Open a task.
-4. Submit a proposal with team name, concept, plan, and timeline.
-5. Track proposal status.
-6. Wait for business review and acceptance.
+1. Откройте `/login`.
+2. Войдите как `demo_business` с паролем `Demo2026!` либо зарегистрируйте новый бизнес-аккаунт.
+3. Откройте «Создать задачу».
+4. Введите слабое описание, например:
 
----
+   ```text
+   Хотим сократить списания продуктов в небольшой сети кофеен.
+   ```
 
-## Why this project is competitive
+5. Нажмите «Проанализировать описание».
+6. Убедитесь, что система показывает минимум три вопроса по отсутствующим сведениям. При настроенном ключе вопросы генерирует AI; без ключа интерфейс явно показывает локальный fallback.
+7. Ответьте на вопросы о пользователях, данных, результате и критериях успеха.
+8. Нажмите «Собрать карточку» и проверьте, что все поля можно редактировать вручную.
+9. Укажите название задачи, если оно отсутствует.
+10. Сохраните черновик и убедитесь, что он не появился в общем каталоге.
+11. Нажмите «Подтвердить сведения задачи».
+12. Проверьте рейтинг `0–100`, сумму категорий, объяснения и список недостающих сведений.
+13. Дополните карточку, подтвердите ещё раз и убедитесь, что рейтинг пересчитался.
+14. Перейдите к публикации и нажмите «Опубликовать задачу».
+15. Откройте каталог и найдите опубликованную задачу.
 
-This product is compelling because it combines technical execution with a strong real-world use case:
+### 2. Проверка каталога и роли студента
 
-- It solves a common workflow problem in challenge-based education.
-- It reduces poor-quality briefs and improves proposal quality.
-- It uses AI where it adds actual value instead of as decoration.
-- It keeps the final decision human-centered and trustworthy.
-- It is easy to demo in a short time without sacrificing clarity.
-- It has a simple architecture that is easy to explain and extend.
+1. Выйдите из бизнес-аккаунта.
+2. Войдите как `demo_student_1` с паролем `Demo2026!` либо зарегистрируйте студента.
+3. Откройте каталог.
+4. Проверьте сортировку по рейтингу и фильтры по отрасли и уровню готовности.
+5. Откройте созданную задачу.
+6. Заполните название команды, идею решения, план, срок и при необходимости ссылку на прототип.
+7. Отправьте предложение.
+8. Откройте «Мои предложения» и убедитесь, что предложение имеет статус «На рассмотрении».
 
-These are exactly the ingredients that help a project stand out during judging.
+### 3. Проверка ручного решения бизнеса
 
----
+1. В другом окне снова войдите как `demo_business` или как владелец созданной задачи.
+2. Откройте раздел «Предложения».
+3. Найдите предложение студента.
+4. Нажмите «Выбрать» или «Отклонить».
+5. Вернитесь в студенческий аккаунт и проверьте изменение статуса.
+6. При необходимости отправьте предложения от нескольких студентов и убедитесь, что бизнес может выбрать более одной команды.
 
-## Project structure
+Ожидаемый результат: сценарий «черновик → уточнение → карточка → рейтинг → публикация → предложение → ручное решение» выполняется полностью через интерфейс без ручного изменения БД.
 
-- `src/app` — app pages and API routes
-- `src/components` — dashboard and workflow UI
-- `src/lib` — auth, scoring, storage, AI logic, validation
-- `tests` — logic and integration checks
-- `docs` — product, workflow, and architecture documentation
+## Автоматическая проверка
 
----
-
-## Verification
-
-The project includes checks for the core logic and integration flow. Run:
+Перед демонстрацией выполните:
 
 ```bash
 npm run lint
@@ -252,25 +379,33 @@ npm run build
 npm run test:auth
 ```
 
-These checks cover user registration, login, role handling, task creation, publication, scoring, proposal validation, privacy enforcement, and session behavior.
+Проверки охватывают:
 
----
+- формулу и границы уровней рейтинга;
+- фильтрацию выдуманных AI-фактов;
+- релевантность уточняющих вопросов;
+- регистрацию, вход, сессии и роли;
+- владение задачами и приватность черновиков;
+- сохранение, подтверждение и публикацию версий;
+- валидацию предложений;
+- возможность принять несколько команд;
+- сохранение данных после перезапуска.
 
-## Documentation
+Интеграционный тест запускает собранное приложение на отдельном порту и использует временную SQLite-базу, поэтому рабочая база не изменяется.
 
-Additional project notes are available here:
+## Ограничения развёртывания
 
-- [docs/architecture.md](docs/architecture.md)
-- [docs/business-workflow.md](docs/business-workflow.md)
-- [docs/demo.md](docs/demo.md)
-- [docs/mvp.md](docs/mvp.md)
+SQLite рассчитан на один экземпляр приложения с постоянным локальным диском. Текущую сборку следует размещать на VM/VPS или Docker-хосте с persistent volume. Serverless-платформы с эфемерной файловой системой требуют миграции на внешнюю БД.
 
----
+OpenAI API не обязателен для запуска, но без ключа качество анализа ограничено локальными правилами. Использование OpenAI API может тарифицироваться отдельно от хостинга.
 
-## Final pitch
+## Дополнительная документация
 
-SteppeMind is more than a task board. It is a smarter bridge between business problems and student talent.
+- [Архитектура](docs/architecture.md)
+- [Бизнес-конструктор и рейтинг](docs/business-workflow.md)
+- [Сценарий демонстрации](docs/demo.md)
+- [Требования MVP](docs/mvp.md)
 
-It improves the quality of business briefs, gives students better context, and makes it easier to match the right team with the right challenge. The combination of AI assistance, transparent scoring, and human decision-making makes the platform practical, convincing, and genuinely useful.
+## Лицензия
 
-If you want the strongest demo, register as a business user, write a rough idea, let the AI clarify it, confirm the card, publish it, then switch to a student account and submit a proposal. The product story becomes clear almost immediately.
+Проект создан в рамках практического хакатона AI Sana. Отдельный файл лицензии в репозитории не предоставлен.
