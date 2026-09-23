@@ -3,6 +3,8 @@ import { z } from "zod";
 import { db, getState, setProposalStatus } from "@/lib/db";
 import { calculateScore } from "@/lib/scoring";
 import { proposals, tasks } from "@/lib/schema";
+import { eq } from "drizzle-orm";
+import { checkMutation, getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,22 +32,35 @@ const statusSchema = z.object({
 const actionSchema = z.discriminatedUnion("action", [taskSchema, proposalSchema, statusSchema]);
 
 export async function GET() {
-  return NextResponse.json(getState());
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  return NextResponse.json(getState(user), { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request) {
-  const parsed = actionSchema.safeParse(await request.json());
+  const rejected = checkMutation(request);
+  if (rejected) return rejected;
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const parsed = actionSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid data" }, { status: 400 });
 
   if (parsed.data.action === "createTask") {
+    if (user.role !== "business") return NextResponse.json({ error: "forbidden" }, { status: 403 });
     const result = calculateScore(parsed.data.task);
-    db.insert(tasks).values({ ...parsed.data.task, score: result.score, status: "published", createdAt: new Date().toISOString() }).run();
+    db.insert(tasks).values({ ...parsed.data.task, ownerId: user.id, score: result.score, status: "published", createdAt: new Date().toISOString() }).run();
   } else if (parsed.data.action === "createProposal") {
+    if (user.role !== "student") return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    const task = db.select().from(tasks).where(eq(tasks.id, parsed.data.taskId)).get();
+    if (!task || task.status !== "published") return NextResponse.json({ error: "not_found" }, { status: 404 });
     const { action: _action, ...proposal } = parsed.data;
     void _action;
-    db.insert(proposals).values({ ...proposal, status: "pending", createdAt: new Date().toISOString() }).run();
+    db.insert(proposals).values({ ...proposal, studentId: user.id, status: "pending", createdAt: new Date().toISOString() }).run();
   } else {
-    setProposalStatus(parsed.data.id, parsed.data.status);
+    if (user.role !== "business") return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    if (!setProposalStatus(parsed.data.id, parsed.data.status, user.id)) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
   }
-  return NextResponse.json(getState());
+  return NextResponse.json(getState(user), { headers: { "Cache-Control": "no-store" } });
 }

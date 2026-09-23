@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
+import { checkMutation, getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -33,7 +34,12 @@ const fallback = {
 } as const;
 
 export async function POST(request: Request) {
-  const parsed = requestSchema.safeParse(await request.json());
+  const rejected = checkMutation(request);
+  if (rejected) return rejected;
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (user.role !== "business") return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const parsed = requestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   const { description, locale } = parsed.data;
 

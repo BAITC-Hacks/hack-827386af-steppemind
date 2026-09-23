@@ -12,3 +12,8 @@ __pycache__/
 .pytest_cache/
 coverage/
 tmp/
+next-env.d.ts
+*.tsbuildinfo
+steppemind.db
+steppemind.db-shm
+steppemind.db-wal
