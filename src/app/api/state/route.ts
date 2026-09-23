@@ -5,6 +5,7 @@ import { calculateScore } from "@/lib/scoring";
 import { proposals, tasks } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { checkMutation, getSessionUser } from "@/lib/auth";
+import { createProposalSchema, proposalStatusSchema } from "@/lib/proposal-validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,17 +20,7 @@ const taskSchema = z.object({
   }),
 });
 
-const proposalSchema = z.object({
-  action: z.literal("createProposal"), taskId: z.number().int(), teamName: z.string().min(2),
-  solutionIdea: z.string().min(10), plan: z.string().min(10), estimatedDuration: z.string().min(2),
-  prototypeUrl: z.string(),
-});
-
-const statusSchema = z.object({
-  action: z.literal("proposalStatus"), id: z.number().int(), status: z.enum(["accepted", "rejected"]),
-});
-
-const actionSchema = z.discriminatedUnion("action", [taskSchema, proposalSchema, statusSchema]);
+const actionSchema = z.discriminatedUnion("action", [taskSchema, createProposalSchema, proposalStatusSchema]);
 
 export async function GET() {
   const user = await getSessionUser();
@@ -43,7 +34,12 @@ export async function POST(request: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const parsed = actionSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Invalid data" }, { status: 400 });
+  if (!parsed.success) {
+    return NextResponse.json({
+      error: "invalid_data",
+      issues: parsed.error.issues.map(issue => ({ path: issue.path, message: issue.message })),
+    }, { status: 400 });
+  }
 
   if (parsed.data.action === "createTask") {
     if (user.role !== "business") return NextResponse.json({ error: "forbidden" }, { status: 403 });
