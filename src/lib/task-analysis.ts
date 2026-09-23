@@ -44,8 +44,7 @@ export function extractLocally(description: string): TaskCard {
   return card;
 }
 
-// Reject hallucinated values, even if they pass the JSON schema. No model-generated questions or
-// numbers are trusted: questions are selected below only for genuinely absent fields.
+// Reject hallucinated values, even if they pass the JSON schema.
 export function groundedCard(description: string, extracted: TaskCard): TaskCard {
   const card = { ...emptyTaskCard };
   for (const field of taskFields) {
@@ -53,6 +52,25 @@ export function groundedCard(description: string, extracted: TaskCard): TaskCard
     if (value && description.includes(value)) card[field] = value;
   }
   return card;
+}
+
+type GeneratedQuestion = Pick<TaskAnalysis["questions"][number], "field" | "question" | "reason">;
+
+export function buildGeneratedAnalysis(card: TaskCard, generated: GeneratedQuestion[]): TaskAnalysis | null {
+  const { known, missing } = completeness(card);
+  const result: TaskAnalysis["questions"] = [];
+  const seen = new Set<string>();
+  for (const item of generated) {
+    const question = item.question.trim();
+    const reason = item.reason.trim();
+    const key = question.toLocaleLowerCase();
+    if (!missing.some(field => field === item.field) || question.length < 5 || reason.length < 3 || seen.has(key)) continue;
+    seen.add(key);
+    result.push({ id: `${item.field}-${result.length}`, field: item.field, question, reason });
+    if (result.length === 5) break;
+  }
+  if (missing.length && result.length < 3) return null;
+  return { source: "openai", card, known, missing, questions: result };
 }
 
 const questions: Record<Locale, Record<TaskField, [string, string, string]>> = {

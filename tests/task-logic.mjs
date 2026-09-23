@@ -16,7 +16,7 @@ try {
   }
   const { emptyTaskCard } = await import(pathToFileURL(join(directory, 'task-card.mjs')));
   const { calculateScore, readinessLevel } = await import(pathToFileURL(join(directory, 'scoring.mjs')));
-  const { groundedCard, extractLocally, buildAnalysis } = await import(pathToFileURL(join(directory, 'task-analysis.mjs')));
+  const { groundedCard, extractLocally, buildAnalysis, buildGeneratedAnalysis } = await import(pathToFileURL(join(directory, 'task-analysis.mjs')));
   const groups = [['context', 'need'], ['dataMaterials'], ['expectedResult'], ['successCriteria'], ['constraints'], ['users'], ['contact', 'interactionFormat']];
   const valid = {
     context: 'The current support process is manual', need: 'Reduce customer request processing time',
@@ -56,6 +56,16 @@ try {
   }
   const allKnown = Object.fromEntries(Object.keys(emptyTaskCard).map(key => [key, 'Known']));
   assert.equal(buildAnalysis(allKnown, 'ru', 'fallback').questions.length, 0, 'do not ask redundant questions when everything is supplied');
+  const generated = buildGeneratedAnalysis(extracted, [
+    { field: 'users', question: 'Кто будет пользоваться решением?', reason: 'Нужно определить целевую аудиторию.' },
+    { field: 'successCriteria', question: 'Как измерить успешность результата?', reason: 'Нужны критерии приемки.' },
+    { field: 'contact', question: 'Кто будет контактным лицом?', reason: 'Нужна связь с заказчиком.' },
+    { field: 'need', question: 'Этот вопрос относится к известному полю?', reason: 'Должен быть отброшен.' },
+  ]);
+  assert.equal(generated.source, 'openai');
+  assert.deepEqual(generated.questions.map(item => item.field), ['users', 'successCriteria', 'contact']);
+  assert.equal(buildGeneratedAnalysis(extracted, [{ field: 'users', question: 'Кто пользователь?', reason: 'Нужно знать.' }]), null, 'incomplete model output triggers fallback');
+  assert.deepEqual(buildGeneratedAnalysis(allKnown, []).questions, [], 'a complete task needs no generated questions');
   assert.equal(extractLocally('Users: unknown; Data: CSV; Need: Reduce turnover').users, '');
   assert.equal(extractLocally('Data: ' + 'x'.repeat(6000)).dataMaterials, '', 'overlong extraction stays missing and editable');
   console.log('PASS: 128 score combinations, level boundaries, quote grounding and targeted clarifications.');
