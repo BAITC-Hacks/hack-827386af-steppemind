@@ -65,17 +65,16 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
     finally { setBusy(false); }
   }
 
-  return <main lang={locale} className="min-h-screen bg-[#f5f7fb] lg:grid lg:grid-cols-2">
-    <section className="relative flex flex-col justify-between overflow-hidden bg-slate-950 p-8 text-white lg:min-h-screen lg:p-14">
-      <div aria-hidden="true" className="pointer-events-none absolute -right-32 top-32 size-96 rounded-full bg-indigo-600/20 blur-3xl" />
-      <div className="relative flex items-center gap-3 text-xl font-black"><span className="grid size-10 place-items-center rounded-xl bg-indigo-500"><Sparkles size={21} /></span>SteppeMind</div>
+  return <main lang={locale} className="min-h-screen bg-[#f6f7f2] lg:grid lg:grid-cols-2">
+    <section className="relative flex flex-col justify-between overflow-hidden bg-[#123b32] p-8 text-white lg:min-h-screen lg:p-14">
+      <div className="relative flex items-center gap-3 text-xl font-black tracking-tight"><span className="grid size-10 place-items-center rounded-xl bg-[#d99a4e]"><Sparkles size={21} /></span>SteppeMind</div>
       <div className="relative my-20 hidden max-w-lg lg:block">
-        <span className="inline-flex rounded-full border border-indigo-300/20 bg-indigo-400/10 px-4 py-2 text-xs font-bold text-indigo-200">{t.badge}</span>
+        <span className="inline-flex rounded-full border border-[#bce5cf]/25 bg-[#bce5cf]/10 px-4 py-2 text-xs font-bold text-[#ccebd8]">{t.badge}</span>
         <h1 className="mt-7 whitespace-pre-line text-4xl font-black leading-tight tracking-tight lg:text-5xl">{t.title}</h1>
         <p className="mt-5 max-w-md leading-7 text-slate-300">{t.intro}</p>
-        <ul className="mt-10 hidden space-y-5 lg:block">{t.steps.map(step => <li key={step} className="flex items-center gap-3 text-sm text-slate-200"><span className="grid size-7 place-items-center rounded-full bg-indigo-400/15 text-indigo-300"><Check size={15} /></span>{step}</li>)}</ul>
+        <ul className="mt-10 hidden space-y-5 lg:block">{t.steps.map(step => <li key={step} className="flex items-center gap-3 text-sm text-[#d8e9df]"><span className="grid size-7 place-items-center rounded-full bg-[#bce5cf]/15 text-[#bce5cf]"><Check size={15} /></span>{step}</li>)}</ul>
       </div>
-      <p className="relative hidden text-xs font-semibold tracking-widest text-slate-500 lg:block">STEPPEMIND • AI SANA</p>
+      <p className="relative hidden text-xs font-semibold tracking-widest text-[#8fb5a5] lg:block">STEPPEMIND • AI SANA</p>
     </section>
     <section className="flex flex-col px-5 py-6 sm:px-12 lg:px-16">
       <div className="flex justify-end"><button type="button" className="control" onClick={() => setLocale(locale === "ru" ? "kk" : "ru")}><Languages size={16} />{locale === "ru" ? "ҚАЗ" : "РУС"}</button></div>
