@@ -252,6 +252,25 @@ docker run -d \
 
 Откройте `http://localhost:3000`.
 
+Если Docker сообщает `bind: address already in use`, порт 3000 уже занят другим процессом (часто ранее запущенным `npm run dev`). В этом случае опубликуйте контейнер на другом порту хоста:
+
+```bash
+docker run -d \
+  --name steppemind \
+  --restart unless-stopped \
+  --env-file .env.local \
+  -e DATABASE_PATH=/app/data/steppemind.db \
+  -p 3001:3000 \
+  -v steppemind-data:/app/data \
+  steppemind
+```
+
+После этого откройте `http://localhost:3001`. Проверить, какой процесс занимает порт 3000 на macOS или Linux, можно командой:
+
+```bash
+lsof -nP -iTCP:3000 -sTCP:LISTEN
+```
+
 Назначение параметров:
 
 - `--env-file .env.local` передаёт настройки во время запуска, не добавляя секреты в образ;
