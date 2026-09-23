@@ -11,28 +11,28 @@ const copy = {
     intro: "Объединяем бизнес, которому нужны решения, и студентов, готовых создавать их.",
     steps: ["Понятные задачи от бизнеса", "Практический опыт для студентов", "Сотрудничество с реальным результатом"],
     loginTitle: "С возвращением", registerTitle: "Создайте аккаунт",
-    loginHint: "Выберите свою роль и войдите в SteppeMind.", registerHint: "Выберите, как вы будете участвовать в проектах.",
+    loginHint: "Введите логин и пароль — мы определим ваш тип аккаунта.", registerHint: "Выберите, как вы будете участвовать в проектах.",
     business: "Бизнес", student: "Студент", businessHint: "Создаю задачи", studentHint: "Предлагаю решения",
     login: "Логин", loginHintField: "3–40 символов: a–z, 0–9, точка, дефис, _",
     password: "Пароль", passwordHint: "От 8 до 128 символов", confirm: "Повторите пароль",
     company: "Название компании", name: "Ваше имя", submitLogin: "Войти", submitRegister: "Зарегистрироваться",
     noAccount: "Ещё нет аккаунта?", hasAccount: "Уже есть аккаунт?", register: "Регистрация", signIn: "Войти",
     show: "Показать пароль", hide: "Скрыть пароль", mismatch: "Пароли не совпадают.",
-    errors: { invalid_credentials: "Неверный логин, пароль или роль.", login_taken: "Этот логин уже занят. Выберите другой.", invalid_data: "Проверьте заполнение полей и требования к логину и паролю.", too_many_attempts: "Слишком много попыток. Повторите через 15 минут.", unknown: "Не удалось подключиться. Попробуйте ещё раз." },
+    errors: { invalid_credentials: "Неверный логин или пароль.", login_taken: "Этот логин уже занят. Выберите другой.", invalid_data: "Проверьте заполнение полей и требования к логину и паролю.", too_many_attempts: "Слишком много попыток. Повторите через 15 минут.", unknown: "Не удалось подключиться. Попробуйте ещё раз." },
   },
   kk: {
     badge: "Бизнес пен студенттер — бірге", title: "Нақты міндеттер.\nЖаңа мүмкіндіктер.",
     intro: "Шешім іздейтін бизнес пен оны жасауға дайын студенттерді біріктіреміз.",
     steps: ["Бизнестің түсінікті міндеттері", "Студенттерге практикалық тәжірибе", "Нақты нәтижеге бағытталған жұмыс"],
     loginTitle: "Қайта қош келдіңіз", registerTitle: "Аккаунт жасаңыз",
-    loginHint: "Рөліңізді таңдап, SteppeMind жүйесіне кіріңіз.", registerHint: "Жобаларға қалай қатысатыныңызды таңдаңыз.",
+    loginHint: "Логин мен құпиясөзді енгізіңіз — аккаунт түрін өзіміз анықтаймыз.", registerHint: "Жобаларға қалай қатысатыныңызды таңдаңыз.",
     business: "Бизнес", student: "Студент", businessHint: "Міндеттер құрамын", studentHint: "Шешімдер ұсынамын",
     login: "Логин", loginHintField: "3–40 таңба: a–z, 0–9, нүкте, дефис, _",
     password: "Құпиясөз", passwordHint: "8–128 таңба", confirm: "Құпиясөзді қайталаңыз",
     company: "Компания атауы", name: "Сіздің атыңыз", submitLogin: "Кіру", submitRegister: "Тіркелу",
     noAccount: "Аккаунтыңыз жоқ па?", hasAccount: "Аккаунтыңыз бар ма?", register: "Тіркелу", signIn: "Кіру",
     show: "Құпиясөзді көрсету", hide: "Құпиясөзді жасыру", mismatch: "Құпиясөздер сәйкес келмейді.",
-    errors: { invalid_credentials: "Логин, құпиясөз немесе рөл қате.", login_taken: "Бұл логин бос емес. Басқасын таңдаңыз.", invalid_data: "Өрістерді және логин мен құпиясөз талаптарын тексеріңіз.", too_many_attempts: "Әрекет тым көп. 15 минуттан кейін қайталаңыз.", unknown: "Қосылу мүмкін болмады. Қайталап көріңіз." },
+    errors: { invalid_credentials: "Логин немесе құпиясөз қате.", login_taken: "Бұл логин бос емес. Басқасын таңдаңыз.", invalid_data: "Өрістерді және логин мен құпиясөз талаптарын тексеріңіз.", too_many_attempts: "Әрекет тым көп. 15 минуттан кейін қайталаңыз.", unknown: "Қосылу мүмкін болмады. Қайталап көріңіз." },
   },
 };
 
@@ -54,7 +54,9 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
     try {
       const response = await fetch(`/api/auth/${mode}`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ login: data.get("login"), password: data.get("password"), name: data.get("name"), role }),
+        body: JSON.stringify(registering
+          ? { login: data.get("login"), password: data.get("password"), name: data.get("name"), role }
+          : { login: data.get("login"), password: data.get("password") }),
       });
       const result = await response.json();
       if (!response.ok) { setError(result.error ?? "unknown"); return; }
@@ -81,14 +83,14 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
         <h2 className="text-3xl font-black tracking-tight">{registering ? t.registerTitle : t.loginTitle}</h2>
         <p className="mt-3 text-sm leading-6 text-slate-500">{registering ? t.registerHint : t.loginHint}</p>
         <form onSubmit={submit} className="mt-7 space-y-5">
-          <fieldset disabled={busy} className="grid grid-cols-2 gap-3">
+          {registering && <fieldset disabled={busy} className="grid grid-cols-2 gap-3">
             <legend className="sr-only">{locale === "ru" ? "Тип аккаунта" : "Аккаунт түрі"}</legend>
             {(["business", "student"] as const).map(value => <label key={value} className={`relative flex cursor-pointer flex-col rounded-2xl border-2 p-4 transition ${role === value ? "border-indigo-600 bg-indigo-50" : "border-slate-200 bg-white"}`}>
               <input type="radio" name="role" value={value} checked={role === value} onChange={() => { setRole(value); setError(""); }} className="absolute right-4 top-4 accent-indigo-600" />
               {value === "business" ? <BriefcaseBusiness className="mb-3 text-indigo-600" size={23} /> : <GraduationCap className="mb-3 text-indigo-600" size={23} />}
               <span className="text-sm font-extrabold">{t[value]}</span><span className="mt-1 text-xs text-slate-500">{value === "business" ? t.businessHint : t.studentHint}</span>
             </label>)}
-          </fieldset>
+          </fieldset>}
           {registering && <div><label className="label" htmlFor="name">{role === "business" ? t.company : t.name}</label><input className="input" id="name" name="name" autoComplete={role === "business" ? "organization" : "name"} required minLength={2} maxLength={100} disabled={busy} /></div>}
           <div><label className="label" htmlFor="login">{t.login}</label><input className="input" id="login" name="login" autoComplete="username" autoCapitalize="none" spellCheck={false} required minLength={3} maxLength={40} pattern="[a-zA-Z0-9._\-]+" aria-describedby="login-help" disabled={busy} /><p id="login-help" className="mt-2 text-xs text-slate-500">{t.loginHintField}</p></div>
           <div><label className="label" htmlFor="password">{t.password}</label><div className="relative"><input className="input pr-12" id="password" name="password" type={visible ? "text" : "password"} autoComplete={registering ? "new-password" : "current-password"} required minLength={8} maxLength={128} aria-describedby={registering ? "password-help" : undefined} disabled={busy} /><button type="button" onClick={() => setVisible(!visible)} aria-label={visible ? t.hide : t.show} className="absolute inset-y-0 right-0 px-4 text-slate-500">{visible ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>{registering && <p id="password-help" className="mt-2 text-xs text-slate-500">{t.passwordHint}</p>}</div>

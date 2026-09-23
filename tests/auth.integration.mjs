@@ -46,6 +46,7 @@ async function request(path, { body, cookie, origin = base, raw } = {}) {
 function status(response, expected, message) { assert.equal(response.status, expected, message); checks++; }
 function cookie(response) { const value = response.headers.get('set-cookie'); assert.ok(value); return value.split(';')[0]; }
 const credentials = (login, role = 'business') => ({ login, role, password: 'Test-password-2026!' });
+const loginCredentials = login => ({ login, password: 'Test-password-2026!' });
 async function register(login, role) {
   const response = await request('/api/auth/register', { body: { ...credentials(login, role), name: `Test ${login}` } });
   status(response, 201, `register ${role}`);
@@ -65,16 +66,15 @@ try {
   status(await request('/api/ai/analyze', { body: { description: 'Example business task', locale: 'ru' } }), 401, 'private AI endpoint');
   status(await request('/api/auth/register', { raw: '{broken' }), 400, 'malformed JSON');
   status(await request('/api/auth/register', { body: { ...credentials('short'), password: 'x', name: 'Test' } }), 400, 'short password');
-  status(await request('/api/auth/login', { body: credentials('absent'), origin: 'https://other.example' }), 403, 'cross-origin rejected');
+  status(await request('/api/auth/login', { body: loginCredentials('absent'), origin: 'https://other.example' }), 403, 'cross-origin rejected');
 
   const business = await register('business_a', 'business');
   const otherBusiness = await register('business_b', 'business');
   const student = await register('student_a', 'student');
   const otherStudent = await register('student_b', 'student');
   status(await request('/api/auth/register', { body: { ...credentials('BUSINESS_A'), name: 'Duplicate' } }), 409, 'case-insensitive duplicate');
-  status(await request('/api/auth/login', { body: { ...credentials('business_a'), password: 'incorrect-password' } }), 401, 'wrong password');
-  status(await request('/api/auth/login', { body: credentials('business_a', 'student') }), 401, 'wrong role');
-  const login = await request('/api/auth/login', { body: credentials(' BUSINESS_A ') });
+  status(await request('/api/auth/login', { body: { ...loginCredentials('business_a'), password: 'incorrect-password' } }), 401, 'wrong password');
+  const login = await request('/api/auth/login', { body: loginCredentials(' BUSINESS_A ') });
   status(login, 200, 'normalized login');
   const signedIn = cookie(login);
   const authenticatedHome = await request('/', { cookie: signedIn });
@@ -128,7 +128,7 @@ try {
   inspector.close();
   await stop(); await start();
   status(await request('/api/state', { cookie: signedIn }), 200, 'session survives server restart');
-  status(await request('/api/auth/login', { body: credentials('student_a', 'student') }), 200, 'account persists');
+  status(await request('/api/auth/login', { body: loginCredentials('student_a') }), 200, 'account persists');
   status(await request('/api/auth/logout', { cookie: signedIn, body: {} }), 200, 'logout');
   status(await request('/api/state', { cookie: signedIn }), 401, 'logout revokes server session');
   status(await request('/api/state', { cookie: 'steppemind_session=forged' }), 401, 'forged cookie rejected');
@@ -136,8 +136,8 @@ try {
   const expiry = new Database(database);
   expiry.prepare('UPDATE sessions SET expires_at = 0 WHERE account_id = ?').run(otherStudent.user.id); expiry.close();
   status(await request('/api/state', { cookie: otherStudent.cookie }), 401, 'expired session');
-  for (let i = 0; i < 10; i++) status(await request('/api/auth/login', { body: credentials('nonexistent') }), 401, 'failed login');
-  status(await request('/api/auth/login', { body: credentials('nonexistent') }), 429, 'login rate limit');
+  for (let i = 0; i < 10; i++) status(await request('/api/auth/login', { body: loginCredentials('nonexistent') }), 401, 'failed login');
+  status(await request('/api/auth/login', { body: loginCredentials('nonexistent') }), 429, 'login rate limit');
   console.log(`PASS: ${checks} HTTP checks; ownership, password hashes, cookies, session expiry and persistence verified.`);
 } finally {
   await stop();
