@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   try {
     const data = parsed.data;
     const task = data.action === "save" ? saveDraft(user.id, data)
-      : data.action === "confirm" ? confirmDraft(user.id, data.id, data.version)
+      : data.action === "confirm" ? await confirmDraft(user.id, data.id, data.version)
       : publishDraft(user.id, data.id, data.version);
     return json({ task });
   } catch (error) {

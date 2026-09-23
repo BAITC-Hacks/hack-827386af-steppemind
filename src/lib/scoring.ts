@@ -9,6 +9,8 @@ export type ScorableTask = {
   contact: string;
   interactionFormat: string;
 };
+export type ScoreKey = "contextNeed" | "data" | "result" | "criteria" | "constraints" | "users" | "communication";
+export type ScoreEvaluation = { source: "openai" | "fallback"; score: number; breakdown: { key: ScoreKey; weight: number; score: number; reason: string }[] };
 
 const normalized = (value: string) => value.trim().replace(/\s+/g, " ");
 const words = (value: string) => normalized(value).match(/[\p{L}\p{N}]+(?:[-'][\p{L}\p{N}]+)*/gu) ?? [];
@@ -38,4 +40,9 @@ export function calculateScore(task: ScorableTask) {
   const score = breakdown.reduce((sum, item) => sum + (item.earned ? item.weight : 0), 0);
   const level = readinessLevel(score);
   return { score, level, breakdown };
+}
+
+export function localEvaluation(task: ScorableTask): ScoreEvaluation {
+  const rating = calculateScore(task);
+  return { source: "fallback", score: rating.score, breakdown: rating.breakdown.map(item => ({ ...item, score: item.earned ? item.weight : 0, reason: "" })) };
 }

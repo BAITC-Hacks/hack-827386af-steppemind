@@ -10,6 +10,7 @@ export const tasks = sqliteTable("tasks", {
   publishedVersion: integer("published_version"),
   confirmedScore: integer("confirmed_score").notNull().default(0),
   previousScore: integer("previous_score").notNull().default(0),
+  scoreEvaluation: text("score_evaluation"),
   title: text("title").notNull(),
   industry: text("industry").notNull(),
   context: text("context").notNull(),
@@ -41,6 +42,6 @@ export const proposals = sqliteTable("proposals", {
 });
 
 export type Task = Omit<typeof tasks.$inferSelect,
-  "draftCard" | "description" | "version" | "confirmedVersion" | "publishedVersion" | "confirmedScore" | "previousScore">;
+  "draftCard" | "description" | "version" | "confirmedVersion" | "publishedVersion" | "confirmedScore" | "previousScore" | "scoreEvaluation">;
 export type NewTask = typeof tasks.$inferInsert;
 export type Proposal = typeof proposals.$inferSelect;

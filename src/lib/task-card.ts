@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ScoreEvaluation } from "./scoring";
 
 export const taskCardSchema = z.object({
   title: z.string().max(500), industry: z.string().max(200), context: z.string().max(12000),
@@ -26,5 +27,5 @@ export type TaskAnalysis = { source: "openai" | "fallback"; card: TaskCard; know
 export type TaskDraft = {
   id: number; card: TaskCard; description: string; language: Locale; version: number;
   confirmedVersion: number | null; publishedVersion: number | null; confirmedScore: number;
-  previousScore: number; status: "draft" | "confirmed" | "published";
+  previousScore: number; evaluation: ScoreEvaluation | null; status: "draft" | "confirmed" | "published";
 };

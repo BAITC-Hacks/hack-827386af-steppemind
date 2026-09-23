@@ -30,7 +30,7 @@ sqlite.transaction(() => {
   const columns: Record<string, string> = {
     draft_card: "TEXT", description: "TEXT NOT NULL DEFAULT ''", version: "INTEGER NOT NULL DEFAULT 1",
     confirmed_version: "INTEGER", published_version: "INTEGER", confirmed_score: "INTEGER NOT NULL DEFAULT 0",
-    previous_score: "INTEGER NOT NULL DEFAULT 0",
+    previous_score: "INTEGER NOT NULL DEFAULT 0", score_evaluation: "TEXT",
   };
   for (const [column, definition] of Object.entries(columns)) {
     if (!taskColumns.some(existing => existing.name === column)) sqlite.exec(`ALTER TABLE tasks ADD COLUMN ${column} ${definition}`);
@@ -130,15 +130,12 @@ if ((sqlite.prepare("SELECT COUNT(*) AS count FROM tasks").get() as { count: num
   }).run();
 }
 
-// Existing published cards stay published. Recalculate their public snapshot when scoring rules evolve.
+// Existing legacy cards receive an initial deterministic score. AI scores are never overwritten on startup.
 sqlite.transaction(() => {
   for (const task of db.select().from(tasks).where(eq(tasks.status, "published")).all()) {
     const score = calculateScore(task).score;
     if (task.publishedVersion === null) {
       db.update(tasks).set({ confirmedVersion: task.version, publishedVersion: task.version, score, confirmedScore: score })
-        .where(eq(tasks.id, task.id)).run();
-    } else if (task.score !== score || (task.confirmedVersion === task.publishedVersion && task.confirmedScore !== score)) {
-      db.update(tasks).set({ score, ...(task.confirmedVersion === task.publishedVersion ? { confirmedScore: score } : {}) })
         .where(eq(tasks.id, task.id)).run();
     }
   }
@@ -153,8 +150,8 @@ export function getState(user: SessionUser) {
   return {
     tasks: db.select().from(tasks).where(eq(tasks.status, "published")).orderBy(desc(tasks.score)).all().map(task => {
       // Only the published snapshot is public. Working copy and confirmation metadata stay private.
-      const { draftCard, description, version, confirmedVersion, publishedVersion, confirmedScore, previousScore, ...published } = task;
-      void draftCard; void description; void version; void confirmedVersion; void publishedVersion; void confirmedScore; void previousScore;
+      const { draftCard, description, version, confirmedVersion, publishedVersion, confirmedScore, previousScore, scoreEvaluation, ...published } = task;
+      void draftCard; void description; void version; void confirmedVersion; void publishedVersion; void confirmedScore; void previousScore; void scoreEvaluation;
       return { ...published, readinessLevel: readinessLevel(task.score) };
     }),
     proposals: visibleProposals,
