@@ -41,7 +41,18 @@ export const proposals = sqliteTable("proposals", {
   createdAt: text("created_at").notNull(),
 });
 
+export const teamProfiles = sqliteTable("team_profiles", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  studentId: integer("student_id").notNull().unique(),
+  name: text("name").notNull(),
+  interests: text("interests").notNull(),
+  skills: text("skills").notNull(),
+  technologies: text("technologies").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 export type Task = Omit<typeof tasks.$inferSelect,
   "draftCard" | "description" | "version" | "confirmedVersion" | "publishedVersion" | "confirmedScore" | "previousScore" | "scoreEvaluation">;
 export type NewTask = typeof tasks.$inferInsert;
 export type Proposal = typeof proposals.$inferSelect;
+export type TeamProfile = typeof teamProfiles.$inferSelect;

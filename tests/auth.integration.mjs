@@ -60,6 +60,13 @@ async function register(login, role) {
 
 try {
   await start();
+  const demoDatabase = new Database(database, { readonly: true });
+  assert.equal(demoDatabase.prepare("SELECT COUNT(*) count FROM tasks WHERE description LIKE '[demo:draft:%'").get().count, 5, 'five demo drafts');
+  assert.equal(demoDatabase.prepare("SELECT COUNT(*) count FROM tasks WHERE description LIKE '[demo:published:%' AND status = 'published'").get().count, 5, 'five demo published cards');
+  assert.equal(demoDatabase.prepare('SELECT COUNT(*) count FROM team_profiles').get().count, 5, 'five team profiles');
+  assert.equal(demoDatabase.prepare("SELECT COUNT(*) count FROM proposals p JOIN accounts a ON a.id = p.student_id WHERE a.login LIKE 'demo_student_%'").get().count, 5, 'five linked demo proposals');
+  assert.equal(demoDatabase.prepare("SELECT COUNT(*) count FROM accounts WHERE login = 'demo_business' OR login LIKE 'demo_student_%'").get().count, 6, 'demo accounts');
+  demoDatabase.close();
   const guest = await request('/'); status(guest, 307, 'guest redirect'); assert.equal(guest.headers.get('location'), '/login');
   status(await request('/api/state'), 401, 'private catalog');
   status(await request('/api/state', { body: { action: 'createTask' } }), 401, 'guest cannot mutate');
@@ -67,6 +74,7 @@ try {
   status(await request('/api/auth/register', { raw: '{broken' }), 400, 'malformed JSON');
   status(await request('/api/auth/register', { body: { ...credentials('short'), password: 'x', name: 'Test' } }), 400, 'short password');
   status(await request('/api/auth/login', { body: loginCredentials('absent'), origin: 'https://other.example' }), 403, 'cross-origin rejected');
+  status(await request('/api/auth/login', { body: { login: 'demo_business', password: 'Demo2026!' } }), 200, 'documented demo business login');
 
   const business = await register('business_a', 'business');
   const otherBusiness = await register('business_b', 'business');

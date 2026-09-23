@@ -1,9 +1,10 @@
 import Database from "better-sqlite3";
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import { proposals, tasks, type NewTask } from "./schema";
+import { proposals, tasks, teamProfiles, type NewTask } from "./schema";
 import type { SessionUser } from "./auth-types";
 import { calculateScore, readinessLevel } from "./scoring";
+import { seedDemoData } from "./demo-seed";
 
 export const sqlite = new Database(process.env.DATABASE_PATH ?? "steppemind.db");
 sqlite.pragma("busy_timeout = 5000");
@@ -20,6 +21,15 @@ sqlite.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT, task_id INTEGER NOT NULL, team_name TEXT NOT NULL,
     solution_idea TEXT NOT NULL, plan TEXT NOT NULL, estimated_duration TEXT NOT NULL,
     prototype_url TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS team_profiles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id INTEGER NOT NULL UNIQUE REFERENCES accounts(id),
+    name TEXT NOT NULL,
+    interests TEXT NOT NULL,
+    skills TEXT NOT NULL,
+    technologies TEXT NOT NULL,
+    created_at TEXT NOT NULL
   );
 `);
 
@@ -130,6 +140,9 @@ if ((sqlite.prepare("SELECT COUNT(*) AS count FROM tasks").get() as { count: num
   }).run();
 }
 
+// Reproducible hackathon dataset. Set SEED_DEMO_DATA=0 to disable known demo accounts.
+seedDemoData(sqlite);
+
 // Existing legacy cards receive an initial deterministic score. AI scores are never overwritten on startup.
 sqlite.transaction(() => {
   for (const task of db.select().from(tasks).where(eq(tasks.status, "published")).all()) {
@@ -155,6 +168,7 @@ export function getState(user: SessionUser) {
       return { ...published, readinessLevel: readinessLevel(task.score) };
     }),
     proposals: visibleProposals,
+    teamProfiles: db.select().from(teamProfiles).orderBy(teamProfiles.id).all(),
     proposalCounts: Object.fromEntries(counts.map(row => [row.task_id, row.count])),
   };
 }
